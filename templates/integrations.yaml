@@ -1,0 +1,54 @@
+# 5. Integrations Profile CFN Template: SQS + Lambda
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Integrations Stack - SQS + Lambda Consumer
+Resources:
+  IntegrationQueue:
+    Type: AWS::SQS::Queue
+
+  IntegrationLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: sqs-access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: '*'
+
+  IntegrationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: integration-consumer
+      Handler: index.handler
+      Role: !GetAtt IntegrationLambdaRole.Arn
+      Code:
+        ZipFile: |
+          def handler(event, context):
+              print("Received event:", event)
+              return {"statusCode": 200, "body": "OK"}
+      Runtime: python3.9
+      Timeout: 30
+      Environment:
+        Variables:
+          QUEUE_URL: !Ref IntegrationQueue
+
+  LambdaEventSource:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 5
+      EventSourceArn: !GetAtt IntegrationQueue.Arn
+      FunctionName: !GetAtt IntegrationFunction.Arn
+      Enabled: true
