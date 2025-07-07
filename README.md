@@ -80,3 +80,57 @@ Lambda processes them asynchronously.
 ## Sequence:
 
 Can be deployed standalone. The producers that send messages to SQS must be configured after this stack is deployed.
+
+
+----------
+# How to run the Steps to install the Infra components:
+
+## Prerequisites:
+1. AWS CLI installed and configured (aws configure)
+2. AWS CloudFormation permissions (AdministratorAccess or scoped permissions)
+3. VPC, Subnet IDs, and Security Group IDs ready (for ECS, RDS, PrivateLink)
+
+## Deployment Sequence & Commands:
+### 1. Deploy External Systems Profile (VPC Endpoint)
+```bash
+  aws cloudformation create-stack \
+  --stack-name external-systems-stack \
+  --template-body file://external-systems.yaml \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameters ParameterKey=VpcId,ParameterValue=vpc-xxxxxxx \
+               ParameterKey=SubnetIds,ParameterValue='["subnet-xxxxxx"]' \
+               ParameterKey=SecurityGroupIds,ParameterValue='["sg-xxxxxx"]'
+```
+
+### 2. Deploy Datastore Profile (RDS)
+
+```bash
+aws cloudformation create-stack \
+  --stack-name datastore-stack \
+  --template-body file://datastore.yaml \
+  --capabilities CAPABILITY_NAMED_IAM
+```
+
+### 3. Deploy Integrations Profile (SQS + Lambda)
+```bash
+aws cloudformation create-stack \
+  --stack-name integrations-stack \
+  --template-body file://integrations.yaml \
+  --capabilities CAPABILITY_NAMED_IAM
+```
+
+### 4. Deploy Core Engine Profile (ECS Fargate)
+```bash
+aws cloudformation create-stack \
+  --stack-name core-engine-stack \
+  --template-body file://core-engine.yaml \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameters ParameterKey=SubnetIds,ParameterValue='["subnet-xxxxxx"]' \
+               ParameterKey=SecurityGroupIds,ParameterValue='["sg-xxxxxx"]'
+```
+
+### 5. Deploy Frontend Profile (S3 + CloudFront)
+```bash
+aws cloudformation create-stack \
+  --stack-name frontend-stack \
+  --template-body file://frontend.yaml
